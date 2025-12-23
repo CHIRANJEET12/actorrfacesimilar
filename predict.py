@@ -5,7 +5,7 @@ from scipy.spatial.distance import cosine
 from PIL import Image
 
 MODEL = "Facenet"
-DETECTOR = "retinaface"   # IMPORTANT
+DETECTOR = "opencv"   # IMPORTANT
 IMAGE_SIZE = (224, 224)
 
 with open("embeddings.pkl", "rb") as f:
