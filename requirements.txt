@@ -3,7 +3,7 @@ deepface
 tensorflow-cpu==2.10.1
 tf-keras
 opencv-python-headless
-numpy
+numpy==1.23.5
 scipy
 pillow
 mtcnn
