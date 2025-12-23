@@ -17,7 +17,7 @@ uploaded_file = st.file_uploader(
 if uploaded_file:
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.image(uploaded_file, caption="Your Photo", width="stretch")
+        st.image(uploaded_file, caption="Your Photo", width=300)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         image = Image.open(uploaded_file)
