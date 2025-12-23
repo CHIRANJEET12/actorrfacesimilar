@@ -1,9 +1,12 @@
 streamlit
 deepface==0.0.92
-tensorflow==2.13.1
-keras==2.13.1
+# Downgrade for better cloud compatibility
+tensorflow==2.10.1
+keras==2.10.0
+# Keep other dependencies
 numpy
 scipy
 pillow
 mtcnn
-opencv-python-headless==4.8.1.78
+# Let pip find the compatible version
+opencv-python-headless
