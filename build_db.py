@@ -6,7 +6,7 @@ from deepface import DeepFace
 import tempfile
 
 MODEL = "Facenet"
-DETECTOR = "retinaface"
+DETECTOR = "opencv"
 
 print("Starting to build actor database...")
 
