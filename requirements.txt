@@ -4,4 +4,4 @@ tensorflow-cpu==2.10.1
 opencv-python-headless==4.8.1.78
 numpy==1.23.5
 pillow==9.5.0
-protobuf==3.19.6
+scipy==1.9.3
