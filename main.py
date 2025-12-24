@@ -1,120 +1,191 @@
-import pickle
-import numpy as np
-from deepface import DeepFace
-from scipy.spatial.distance import cosine
-import cv2
+import streamlit as st
+from predict import predict_actor
+from PIL import Image
 import tempfile
 import os
+import time
 
-MODEL = "Facenet"
+st.set_page_config(page_title="Bollywood Look-Alike", layout="centered")
 
-# Load the actor database
-try:
-    with open("embeddings.pkl", "rb") as f:
-        actor_db = pickle.load(f)
-    print(f"Loaded database with {len(actor_db)} actors")
-except Exception as e:
-    print(f"Error loading embeddings: {e}")
-    actor_db = {}
+st.title("🎬 Bollywood Actor Look-Alike")
+st.write("Upload your photo and see which Bollywood actor you resemble!")
 
-def preprocess_image(image_path):
-    """Preprocess image to improve face detection"""
+# Add tips for users
+with st.expander("💡 Tips for best results", expanded=False):
+    st.write("""
+    1. Upload a clear, front-facing photo
+    2. Make sure your face is well-lit
+    3. Remove sunglasses or hats
+    4. Look directly at the camera
+    5. Ensure your full face is visible
+    """)
+
+uploaded_file = st.file_uploader(
+    "Choose an image file",
+    type=["jpg", "jpeg", "png"]
+)
+
+if uploaded_file is not None:
     try:
-        # Read image
-        img = cv2.imread(image_path)
-        if img is None:
-            raise ValueError("Could not read image")
+        # Display the uploaded image
+        col1, col2 = st.columns(2)
         
-        # Save to temp file (DeepFace works better with file paths)
-        temp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
-        cv2.imwrite(temp_file.name, img)
-        return temp_file.name
-    except Exception as e:
-        print(f"Error preprocessing image: {e}")
-        return image_path
-
-def predict_actor(img_path, top_k=5):
-    """Find the most similar Bollywood actor"""
-    try:
-        print(f"Starting prediction for: {img_path}")
+        with col1:
+            st.subheader("Your Photo")
+            # Convert uploaded file to PIL Image
+            image = Image.open(uploaded_file)
+            # Resize for display
+            max_size = (300, 300)
+            image.thumbnail(max_size)
+            st.image(image, caption="Uploaded Image", width=250)
         
-        # Preprocess the image
-        processed_path = preprocess_image(img_path)
-        
-        # Try different face detectors
-        detectors = ["opencv", "mtcnn", "retinaface"]
-        embedding = None
-        
-        for detector in detectors:
-            try:
-                print(f"Trying {detector} detector...")
-                result = DeepFace.represent(
-                    img_path=processed_path,
-                    model_name=MODEL,
-                    detector_backend=detector,
-                    enforce_detection=False,  # Set to False to handle cases without clear faces
-                    align=True
-                )
-                
-                if result and len(result) > 0:
-                    embedding = result[0]["embedding"]
-                    print(f"Successfully extracted embedding using {detector}")
-                    break
-                    
-            except Exception as e:
-                print(f"Detector {detector} failed: {str(e)[:100]}")
-                continue
-        
-        # Clean up temp file if created
-        if processed_path != img_path and os.path.exists(processed_path):
-            os.unlink(processed_path)
-        
-        if embedding is None:
-            raise Exception("Could not analyze the face in the image. Please upload a clearer photo.")
-        
-        # Compare with database
-        results = []
-        
-        for actor, actor_data in actor_db.items():
-            for data in actor_data:
-                try:
-                    db_embedding = data["embedding"]
-                    image_path = data["image_path"]
-                    
-                    # Calculate similarity
-                    distance = cosine(embedding, db_embedding)
-                    similarity = round((1 - distance) * 100, 2)
-                    
-                    results.append({
-                        "actor": actor,
-                        "similarity": similarity,
-                        "image_path": image_path
-                    })
-                except Exception as e:
-                    print(f"Error comparing with {actor}: {e}")
-                    continue
-        
-        if not results:
-            return []
-        
-        # Sort by similarity (highest first)
-        results.sort(key=lambda x: x["similarity"], reverse=True)
-        
-        # Get unique actors
-        final_results = []
-        seen_actors = set()
-        
-        for result in results:
-            if result["actor"] not in seen_actors:
-                final_results.append(result)
-                seen_actors.add(result["actor"])
+        # Save the uploaded file to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+            # Handle different image modes
+            if image.mode in ('RGBA', 'LA', 'P'):
+                # Convert RGBA to RGB
+                rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                rgb_image.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                rgb_image.save(tmp_file.name, 'JPEG', quality=95)
+            elif image.mode != 'RGB':
+                image = image.convert('RGB')
+                image.save(tmp_file.name, 'JPEG', quality=95)
+            else:
+                # Save original image
+                image.save(tmp_file.name, 'JPEG', quality=95)
             
-            if len(final_results) >= top_k:
-                break
+            temp_path = tmp_file.name
         
-        print(f"Found {len(final_results)} matches")
-        return final_results
-        
+        with col2:
+            st.subheader("Analysis")
+            
+            if st.button("🔍 Find My Look-Alike", type="primary"):
+                # Create a progress container
+                progress_container = st.container()
+                
+                with progress_container:
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    try:
+                        # Step 1: Check file
+                        status_text.text("Checking image file...")
+                        progress_bar.progress(10)
+                        time.sleep(0.5)
+                        
+                        # Step 2: Analyze image
+                        status_text.text("Analyzing facial features...")
+                        progress_bar.progress(30)
+                        
+                        # Call the prediction function
+                        results = predict_actor(temp_path, top_k=5)
+                        
+                        progress_bar.progress(80)
+                        status_text.text("Finding closest matches...")
+                        time.sleep(0.5)
+                        
+                        progress_bar.progress(100)
+                        status_text.text("Complete!")
+                        time.sleep(0.5)
+                        
+                        # Clear progress indicators
+                        progress_bar.empty()
+                        status_text.empty()
+                        
+                        # Display results
+                        if results:
+                            st.success("✅ Analysis Complete!")
+                            
+                            # Show top match first
+                            top_match = results[0]
+                            st.subheader(f"🎯 Your Closest Match: **{top_match['actor']}**")
+                            
+                            col_img, col_info = st.columns([1, 2])
+                            
+                            with col_img:
+                                try:
+                                    actor_img = Image.open(top_match['image_path'])
+                                    actor_img.thumbnail((200, 200))
+                                    st.image(actor_img, caption=top_match['actor'], width=150)
+                                except:
+                                    st.warning("Could not load actor image")
+                            
+                            with col_info:
+                                score = top_match['similarity']
+                                if score >= 75:
+                                    st.markdown(f"<h1 style='color: green;'>{score}% Match</h1>", unsafe_allow_html=True)
+                                    st.write("**Strong resemblance!** 🎉")
+                                elif score >= 50:
+                                    st.markdown(f"<h1 style='color: orange;'>{score}% Match</h1>", unsafe_allow_html=True)
+                                    st.write("**Good match!** ✨")
+                                else:
+                                    st.markdown(f"<h1 style='color: #ff6b6b;'>{score}% Match</h1>", unsafe_allow_html=True)
+                                    st.write("**Some resemblance** 👀")
+                            
+                            # Show other matches
+                            if len(results) > 1:
+                                st.subheader("🎭 Other Possible Matches")
+                                
+                                # Create columns for other matches
+                                cols = st.columns(len(results) - 1)
+                                
+                                for idx, result in enumerate(results[1:], 1):
+                                    with cols[idx - 1]:
+                                        try:
+                                            actor_img = Image.open(result['image_path'])
+                                            actor_img.thumbnail((150, 150))
+                                            st.image(actor_img, caption=result['actor'], width=120)
+                                        except:
+                                            st.write(f"**{result['actor']}**")
+                                        
+                                        score = result['similarity']
+                                        if score >= 70:
+                                            st.markdown(f"<div style='color: green; text-align: center;'><b>{score}%</b></div>", unsafe_allow_html=True)
+                                        elif score >= 50:
+                                            st.markdown(f"<div style='color: orange; text-align: center;'><b>{score}%</b></div>", unsafe_allow_html=True)
+                                        else:
+                                            st.markdown(f"<div style='color: #ff6b6b; text-align: center;'><b>{score}%</b></div>", unsafe_allow_html=True)
+                            
+                            # Show detailed table
+                            st.subheader("📊 Detailed Results")
+                            for result in results:
+                                col1, col2, col3 = st.columns([3, 1, 2])
+                                with col1:
+                                    st.write(f"**{result['actor']}**")
+                                with col2:
+                                    score = result['similarity']
+                                    if score >= 75:
+                                        st.success(f"{score}%")
+                                    elif score >= 50:
+                                        st.warning(f"{score}%")
+                                    else:
+                                        st.error(f"{score}%")
+                                with col3:
+                                    bar = st.progress(0)
+                                    bar.progress(min(score, 100) / 100)
+                        
+                        else:
+                            st.warning("No matches found. Please try with a different image.")
+                    
+                    except Exception as e:
+                        st.error(f"❌ Error during analysis: {str(e)}")
+                        
+                        if "Face not detected" in str(e) or "face" in str(e).lower():
+                            st.info("""
+                            **Tips to improve face detection:**
+                            - Upload a clearer photo with better lighting
+                            - Make sure your entire face is visible
+                            - Try a front-facing photo
+                            - Avoid dark backgrounds or shadows on your face
+                            """)
+                    
+                    finally:
+                        # Clean up temporary file
+                        if os.path.exists(temp_path):
+                            os.unlink(temp_path)
+    
     except Exception as e:
-        print(f"Error in predict_actor: {str(e)}")
-        raise Exception(str(e))
+        st.error(f"Error processing image: {str(e)}")
+        st.info("Please try uploading a different image file.")
