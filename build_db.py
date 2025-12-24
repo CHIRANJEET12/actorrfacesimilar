@@ -6,7 +6,7 @@ from deepface import DeepFace
 import tempfile
 
 MODEL = "Facenet"
-DETECTOR = "RetinaFace"
+DETECTOR = "mtcnn"
 
 print("Starting to build actor database...")
 
@@ -78,7 +78,7 @@ for actor in actors:
                 img_path=temp_file_path,
                 model_name=MODEL,
                 detector_backend=DETECTOR,
-                enforce_detection=True,
+                enforce_detection=False,
             )
             embeddings.append({
                 'embedding': rep[0]['embedding'],
