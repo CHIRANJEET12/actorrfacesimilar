@@ -148,24 +148,7 @@ if uploaded_file is not None:
                                         else:
                                             st.markdown(f"<div style='color: #ff6b6b; text-align: center;'><b>{score}%</b></div>", unsafe_allow_html=True)
                             
-                            # Show detailed table
-                            st.subheader("📊 Detailed Results")
-                            for result in results:
-                                col1, col2, col3 = st.columns([3, 1, 2])
-                                with col1:
-                                    st.write(f"**{result['actor']}**")
-                                with col2:
-                                    score = result['similarity']
-                                    if score >= 75:
-                                        st.success(f"{score}%")
-                                    elif score >= 50:
-                                        st.warning(f"{score}%")
-                                    else:
-                                        st.error(f"{score}%")
-                                with col3:
-                                    bar = st.progress(0)
-                                    bar.progress(min(score, 100) / 100)
-                        
+
                         else:
                             st.warning("No matches found. Please try with a different image.")
                     
